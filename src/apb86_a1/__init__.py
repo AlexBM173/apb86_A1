@@ -2,20 +2,25 @@
 
 The package exposes:
 
-- I/O utilities for loading simulation/observation data and saving artifacts.
-- Preprocessing helpers for normalization, PCA, and dataset splitting.
+- I/O utilities for loading simulation/observation data and saving artefacts.
+- Preprocessing helpers for normalisation, PCA, and dataset splitting.
 - Emulator utilities for model construction, training, evaluation, and
-    hyperparameter optimization.
+    hyperparameter optimisation.
+
+British English spellings are used throughout (normalisation, optimisation, etc.).
+American English aliases are provided for backwards compatibility.
 """
 
 from .emulator import (
     EvaluationResult,
     NeuralNetworkEmulator,
-    OptimizationResult,
+    OptimisationResult,
+    OptimizationResult,  # Backwards-compatibility alias
     TrainingConfig,
     TrainingHistory,
     build_emulator,
-    optimize_emulator,
+    optimise_emulator,
+    optimize_emulator,  # Backwards-compatibility alias
     predict,
     test_emulator,
     train_emulator,
@@ -32,12 +37,15 @@ from .io import (
 )
 from .preprocessing import (
     DatasetSplits,
-    NormalizationStats,
+    NormalisationStats,
+    NormalizationStats,  # Backwards-compatibility alias
     PCAResults,
     cumulative_explained_variance,
     fit_pca_with_observation,
-    normalize_observation,
-    normalize_spectra,
+    normalise_observation,
+    normalize_observation,  # Backwards-compatibility alias
+    normalise_spectra,
+    normalize_spectra,  # Backwards-compatibility alias
     split_training_data,
 )
 
@@ -45,9 +53,11 @@ __all__ = [
     "DatasetSplits",
     "EvaluationResult",
     "NeuralNetworkEmulator",
-    "NormalizationStats",
+    "NormalisationStats",
+    "NormalizationStats",  # Backwards compatibility
     "ObservationData",
-    "OptimizationResult",
+    "OptimisationResult",
+    "OptimizationResult",  # Backwards compatibility
     "PCAResults",
     "SimulationData",
     "TrainingConfig",
@@ -58,9 +68,12 @@ __all__ = [
     "load_observations",
     "load_simulation_dataset",
     "load_split_dataset",
-    "normalize_observation",
-    "normalize_spectra",
-    "optimize_emulator",
+    "normalise_observation",
+    "normalize_observation",  # Backwards compatibility
+    "normalise_spectra",
+    "normalize_spectra",  # Backwards compatibility
+    "optimise_emulator",
+    "optimize_emulator",  # Backwards compatibility
     "predict",
     "save_observations_pca",
     "save_pca_model",

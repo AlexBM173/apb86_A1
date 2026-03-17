@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-"""Neural-network emulator utilities for training, evaluation, and optimization."""
+"""Neural-network emulator utilities for training, evaluation, and optimisation.
+
+This module provides fully connected PyTorch neural network models suitable for
+emulating relationships between astrophysical parameters and observed spectra.
+It supports variable architecture search, early stopping, and Optuna-based
+hyperparameter optimisation with comprehensive trial analysis and visualisation.
+"""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,8 +44,8 @@ class NeuralNetworkEmulator(torch.nn.Module):
 
         layers: list[torch.nn.Module] = []
         current_dim = input_dim
-        normalized_dropout_rates = _normalize_dropout_rates(hidden_units, dropout_rates)
-        for hidden_dim, dropout_rate in zip(hidden_units, normalized_dropout_rates):
+        normalised_dropout_rates = _normalise_dropout_rates(hidden_units, dropout_rates)
+        for hidden_dim, dropout_rate in zip(hidden_units, normalised_dropout_rates):
             layers.append(torch.nn.Linear(current_dim, int(hidden_dim)))
             layers.append(torch.nn.ReLU())
             if dropout_rate > 0:
@@ -95,8 +101,16 @@ class EvaluationResult:
 
 
 @dataclass(frozen=True)
-class OptimizationResult:
-    """Summary outputs from Optuna hyperparameter optimization."""
+class OptimisationResult:
+    """Summary outputs from Optuna hyperparameter optimisation.
+
+    Attributes:
+        best_params: Dictionary of best-trial hyperparameters.
+        best_value: Best validation loss achieved.
+        study: Optuna study object for trial access and analysis.
+        best_model_path: Path where the best model checkpoint was saved (if any).
+        training_curves_plot_path: Path where the optimisation-curve plot was saved (if any).
+    """
 
     best_params: dict[str, Any]
     best_value: float
@@ -105,11 +119,15 @@ class OptimizationResult:
     training_curves_plot_path: str | None = None
 
 
-def _normalize_dropout_rates(
+# Backwards-compatibility alias for American English spelling.
+OptimizationResult = OptimisationResult
+
+
+def _normalise_dropout_rates(
     hidden_units: Sequence[int],
     dropout_rates: float | Sequence[float],
 ) -> tuple[float, ...]:
-    """Normalize scalar or sequence dropout settings to per-layer tuple.
+    """Normalise scalar or sequence dropout settings to per-layer tuple.
 
     Args:
         hidden_units: Hidden architecture used for length validation.
@@ -117,6 +135,9 @@ def _normalize_dropout_rates(
 
     Returns:
         Per-layer dropout-rate tuple.
+
+    Raises:
+        ValueError: If dropout-rate count does not match hidden-layer count.
     """
 
     if isinstance(dropout_rates, (int, float)):
@@ -290,7 +311,7 @@ def test_emulator(
     return EvaluationResult(mse=mse, predictions=predictions, targets=targets)
 
 
-def optimize_emulator(
+def optimise_emulator(
     x_train: np.ndarray,
     y_train: np.ndarray,
     x_val: np.ndarray,
@@ -312,13 +333,13 @@ def optimize_emulator(
     training_curves_plot_path: str | Path | None = None,
     representative_trial_count: int = 3,
     device: str = "cpu",
-) -> OptimizationResult:
-    """Run Optuna optimization over architecture and training hyperparameters.
+) -> OptimisationResult:
+    """Run Optuna hyperparameter-optimisation search over architecture and training settings.
 
     The search space includes variable layer counts, per-layer hidden widths,
-    per-layer dropout rates, optimizer selection, and learning rate. Each trial
-    supports early stopping and records train/validation curves for later
-    visualization.
+    per-layer dropout rates, optimiser selection, and learning rate. Each trial
+    supports early stopping and records train/validation-loss curves for
+    visualisation and analysis.
 
     Args:
         x_train: Training features.

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-"""Data-loading and artifact-writing utilities for the coursework package.
+"""Data loading and I/O utilities for the coursework package.
 
-This module centralizes all interactions with on-disk `.npz`/pickle artifacts so
-the rest of the codebase can focus on modeling and preprocessing logic.
+This module provides functions to load observations and simulation data from disk,
+and to persist normalised/transformed datasets and trained models in standard formats.
+"""
 """
 
 from dataclasses import dataclass
@@ -102,13 +103,13 @@ def _extract_param_dict(raw_value: Any, filename: str, expected_size: int) -> li
 
 
 def load_observations(data_dir: str | Path) -> ObservationData:
-    """Load observed spectrum arrays from `observations.npz`.
+    """Load observed spectrum from `observations.npz`.
 
     Args:
         data_dir: Directory containing `observations.npz`.
 
     Returns:
-        Parsed observation data container.
+        ObservationData with wavenumbers and power values.
     """
 
     observations_path = Path(data_dir) / "observations.npz"
@@ -120,17 +121,17 @@ def load_observations(data_dir: str | Path) -> ObservationData:
 
 
 def load_simulation_dataset(data_dir: str | Path) -> SimulationData:
-    """Load and normalize all simulation samples from disk.
+    """Load and materialise all simulation samples from disk.
 
-    The loader reads every `.npz` file under `data/simulations/simulations`,
-    flattens astrophysical + cosmological parameter dictionaries into a stable
-    4-value vector, and collects relevant metadata fields.
+    Reads every `.npz` file under `data/simulations/simulations`, extracts
+    astrophysical and cosmological parameters from nested dictionaries,
+    and aggregates all samples and metadata.
 
     Args:
         data_dir: Root data directory containing the simulations folder.
 
     Returns:
-        Fully materialized simulation dataset container.
+        SimulationData with arrays of spectra, parameters, and metadata.
     """
 
     simulations_dir = Path(data_dir) / "simulations" / "simulations"
@@ -184,16 +185,16 @@ def save_split_datasets(
     x_test: np.ndarray,
     y_test: np.ndarray,
 ) -> None:
-    """Persist train/validation/test splits as `.npz` files.
+    """Persist train/validation/test splits as separate `.npz` files.
 
     Args:
-        output_dir: Directory where split files should be written.
-        x_train: Training features.
-        y_train: Training targets.
-        x_val: Validation features.
-        y_val: Validation targets.
-        x_test: Test features.
-        y_test: Test targets.
+        output_dir: Directory where split files will be written.
+        x_train: Training feature matrix.
+        y_train: Training target matrix.
+        x_val: Validation feature matrix.
+        y_val: Validation target matrix.
+        x_test: Test feature matrix.
+        y_test: Test target matrix.
     """
 
     output_path = Path(output_dir)

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-"""Command-line interface for running the end-to-end coursework pipeline."""
+"""Command-line interface for running the end-to-end coursework pipeline.
+
+This module orchestrates the full workflow: data loading, train/validation/test splitting,
+normalisation using training-set statistics only, PCA fitting and transformation,
+baseline model training, and optional hyperparameter optimisation with early stopping.
+"""
 
 import argparse
 import json
@@ -8,7 +13,7 @@ from pathlib import Path
 
 import torch
 
-from .emulator import TrainingConfig, build_emulator, optimize_emulator, test_emulator, train_emulator
+from .emulator import TrainingConfig, build_emulator, optimise_emulator, test_emulator, train_emulator
 from .io import (
     load_observations,
     load_simulation_dataset,
@@ -16,7 +21,7 @@ from .io import (
     save_pca_model,
     save_split_datasets,
 )
-from .preprocessing import fit_pca_with_observation, normalize_observation, normalize_spectra, split_training_data
+from .preprocessing import fit_pca_with_observation, normalise_observation, normalise_spectra, split_training_data
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -76,16 +81,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Torch device to use, for example cpu or cuda",
     )
     parser.add_argument(
-        "--optimize",
+        "--optimise",
         action="store_true",
-        help="Run Optuna hyperparameter optimization after training",
+        help="Run Optuna hyperparameter optimisation after training",
     )
     parser.add_argument("--n-trials", type=int, default=20, help="Number of Optuna trials")
     parser.add_argument(
         "--early-stopping-patience",
         type=int,
         default=25,
-        help="Patience in epochs for early stopping during each optimization trial",
+        help="Patience in epochs for early stopping during each optimisation trial",
     )
     parser.add_argument(
         "--early-stopping-min-delta",
@@ -100,20 +105,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Minimum epochs to run before early stopping can trigger",
     )
     parser.add_argument(
-        "--best-optimized-model-path",
+        "--best-optimised-model-path",
         default=None,
-        help="Optional path to save the best model found during optimization",
+        help="Optional path to save the best model found during optimisation",
     )
     parser.add_argument(
-        "--optimization-curves-path",
+        "--optimisation-curves-path",
         default=None,
-        help="Optional path to save learning-curve plots for optimization trials",
+        help="Optional path to save training-curve plots for optimisation trials",
     )
     parser.add_argument(
         "--representative-trials",
         type=int,
         default=3,
-        help="Number of non-best representative trials to include in optimization plots",
+        help="Number of non-best representative trials to include in optimisation plots",
     )
     parser.add_argument(
         "--save-model-path",
