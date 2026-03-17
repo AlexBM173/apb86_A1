@@ -1,0 +1,2 @@
+[console_scripts]
+apb86-a1 = apb86_a1.cli:main

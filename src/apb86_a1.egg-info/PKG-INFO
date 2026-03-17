@@ -1,3 +1,16 @@
+Metadata-Version: 2.4
+Name: apb86-a1
+Version: 0.1.0
+Summary: Library utilities for the A1 radio astronomy coursework
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: joblib>=1.3
+Requires-Dist: matplotlib>=3.7
+Requires-Dist: numpy>=1.24
+Requires-Dist: optuna>=3.0
+Requires-Dist: scikit-learn>=1.3
+Requires-Dist: torch>=2.0
+
 # apb86_A1
 A1 Radio Astronomy coursework for Cambridge MPhil in Data Intensive Science
 

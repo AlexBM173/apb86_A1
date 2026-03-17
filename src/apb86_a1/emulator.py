@@ -2,15 +2,15 @@ from __future__ import annotations
 
 """Neural-network emulator utilities for training, evaluation, and optimisation.
 
-This module provides fully connected PyTorch neural network models suitable for
-emulating relationships between astrophysical parameters and observed spectra.
+This module provides fully connected PyTorch neural-network models for emulating
+relationships between astrophysical parameters and PCA-compressed spectra.
 It supports variable architecture search, early stopping, and Optuna-based
-hyperparameter optimisation with comprehensive trial analysis and visualisation.
+hyperparameter optimisation with trial-curve visualisation.
 """
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 import numpy as np
 import torch
@@ -22,12 +22,12 @@ except ImportError:  # pragma: no cover
 
 
 class NeuralNetworkEmulator(torch.nn.Module):
-    """Fully connected emulator network with optional per-layer dropout.
+    """Fully connected emulator with optional per-layer dropout.
 
     Args:
         input_dim: Number of input features.
         hidden_units: Hidden-layer widths in order.
-        dropout_rates: Scalar or per-layer dropout values in `[0, 1)`.
+        dropout_rates: Scalar or per-layer dropout values in ``[0, 1)``.
         output_dim: Number of output targets.
     """
 
@@ -45,34 +45,26 @@ class NeuralNetworkEmulator(torch.nn.Module):
         layers: list[torch.nn.Module] = []
         current_dim = input_dim
         normalised_dropout_rates = _normalise_dropout_rates(hidden_units, dropout_rates)
+
         for hidden_dim, dropout_rate in zip(hidden_units, normalised_dropout_rates):
             layers.append(torch.nn.Linear(current_dim, int(hidden_dim)))
             layers.append(torch.nn.ReLU())
             if dropout_rate > 0:
                 layers.append(torch.nn.Dropout(p=float(dropout_rate)))
             current_dim = int(hidden_dim)
+
         layers.append(torch.nn.Linear(current_dim, output_dim))
         self.network = torch.nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Compute the forward pass for a batch of inputs."""
+        """Run the forward pass for a batch of inputs."""
 
         return self.network(x)
 
 
 @dataclass(frozen=True)
 class TrainingConfig:
-    """Configuration for deterministic emulator training.
-
-    Attributes:
-        learning_rate: Optimizer learning rate.
-        epochs: Number of training epochs.
-        hidden_units: Hidden-layer architecture.
-        dropout_rates: Per-layer dropout rates used during model construction.
-        validation_interval: Epoch interval for validation-loss recording.
-        optimizer_name: Optimizer identifier (e.g., `adam`, `sgd`).
-        device: Torch device string.
-    """
+    """Configuration for deterministic emulator training."""
 
     learning_rate: float = 1e-3
     epochs: int = 200
@@ -85,15 +77,15 @@ class TrainingConfig:
 
 @dataclass
 class TrainingHistory:
-    """Training and validation losses recorded during training."""
+    """Per-epoch train and validation losses."""
 
-    train_loss: list[float] = field(default_factory=list)
-    val_loss: list[float] = field(default_factory=list)
+    train_loss: list[float] = field(default_factory=lambda: cast(list[float], []))
+    val_loss: list[float] = field(default_factory=lambda: cast(list[float], []))
 
 
 @dataclass(frozen=True)
 class EvaluationResult:
-    """Evaluation outputs for test-time assessment."""
+    """Evaluation outputs for held-out test data."""
 
     mse: float
     predictions: np.ndarray
@@ -102,15 +94,7 @@ class EvaluationResult:
 
 @dataclass(frozen=True)
 class OptimisationResult:
-    """Summary outputs from Optuna hyperparameter optimisation.
-
-    Attributes:
-        best_params: Dictionary of best-trial hyperparameters.
-        best_value: Best validation loss achieved.
-        study: Optuna study object for trial access and analysis.
-        best_model_path: Path where the best model checkpoint was saved (if any).
-        training_curves_plot_path: Path where the optimisation-curve plot was saved (if any).
-    """
+    """Summary outputs from Optuna hyperparameter optimisation."""
 
     best_params: dict[str, Any]
     best_value: float
@@ -127,29 +111,21 @@ def _normalise_dropout_rates(
     hidden_units: Sequence[int],
     dropout_rates: float | Sequence[float],
 ) -> tuple[float, ...]:
-    """Normalise scalar or sequence dropout settings to per-layer tuple.
-
-    Args:
-        hidden_units: Hidden architecture used for length validation.
-        dropout_rates: Scalar or per-layer dropout specification.
-
-    Returns:
-        Per-layer dropout-rate tuple.
-
-    Raises:
-        ValueError: If dropout-rate count does not match hidden-layer count.
-    """
+    """Normalise scalar or sequence dropout settings to a per-layer tuple."""
 
     if isinstance(dropout_rates, (int, float)):
-        return tuple(float(dropout_rates) for _ in hidden_units)
-
-    normalized_dropout_rates = tuple(float(rate) for rate in dropout_rates)
-    if len(normalized_dropout_rates) != len(hidden_units):
-        raise ValueError("dropout_rates must match the number of hidden layers")
-    for rate in normalized_dropout_rates:
+        rate = float(dropout_rates)
         if not 0.0 <= rate < 1.0:
             raise ValueError("dropout rates must be in the range [0, 1)")
-    return normalized_dropout_rates
+        return tuple(rate for _ in hidden_units)
+
+    normalised_dropout_rates = tuple(float(rate) for rate in dropout_rates)
+    if len(normalised_dropout_rates) != len(hidden_units):
+        raise ValueError("dropout_rates must match the number of hidden layers")
+    for rate in normalised_dropout_rates:
+        if not 0.0 <= rate < 1.0:
+            raise ValueError("dropout rates must be in the range [0, 1)")
+    return normalised_dropout_rates
 
 
 def _build_optimizer(
@@ -157,31 +133,22 @@ def _build_optimizer(
     optimizer_name: str,
     learning_rate: float,
 ) -> torch.optim.Optimizer:
-    """Construct a torch optimizer by name.
+    """Construct a torch optimiser by name."""
 
-    Args:
-        parameters: Model parameters iterable.
-        optimizer_name: Optimizer identifier.
-        learning_rate: Learning rate value.
-
-    Returns:
-        Configured torch optimizer instance.
-    """
-
-    normalized_name = optimizer_name.lower()
-    if normalized_name == "adam":
+    normalised_name = optimizer_name.lower()
+    if normalised_name == "adam":
         return torch.optim.Adam(parameters, lr=learning_rate)
-    if normalized_name == "adamw":
+    if normalised_name == "adamw":
         return torch.optim.AdamW(parameters, lr=learning_rate)
-    if normalized_name == "sgd":
+    if normalised_name == "sgd":
         return torch.optim.SGD(parameters, lr=learning_rate, momentum=0.9)
-    if normalized_name == "rmsprop":
+    if normalised_name == "rmsprop":
         return torch.optim.RMSprop(parameters, lr=learning_rate)
-    raise ValueError(f"Unsupported optimizer: {optimizer_name}")
+    raise ValueError(f"Unsupported optimiser: {optimizer_name}")
 
 
 def _to_tensor(array: np.ndarray, device: str) -> torch.Tensor:
-    """Convert numpy arrays to float32 tensors on the requested device."""
+    """Convert NumPy arrays to float32 torch tensors on ``device``."""
 
     return torch.as_tensor(np.asarray(array, dtype=np.float32), device=device)
 
@@ -214,19 +181,7 @@ def train_emulator(
     y_val: np.ndarray | None = None,
     config: TrainingConfig = TrainingConfig(),
 ) -> TrainingHistory:
-    """Train an emulator model and return per-epoch loss history.
-
-    Args:
-        model: Emulator model to train.
-        x_train: Training features.
-        y_train: Training targets.
-        x_val: Optional validation features.
-        y_val: Optional validation targets.
-        config: Training configuration.
-
-    Returns:
-        Training history including train and optionally validation losses.
-    """
+    """Train an emulator model and return loss history."""
 
     x_train_tensor = _to_tensor(x_train, config.device)
     y_train_tensor = _to_tensor(y_train, config.device)
@@ -234,21 +189,21 @@ def train_emulator(
     y_val_tensor = _to_tensor(y_val, config.device) if y_val is not None else None
 
     criterion = torch.nn.MSELoss()
-    optimizer = _build_optimizer(
+    optimiser = _build_optimizer(
         model.parameters(),
         optimizer_name=config.optimizer_name,
         learning_rate=config.learning_rate,
     )
+
     history = TrainingHistory()
 
     for epoch in range(config.epochs):
-        # Standard supervised update: forward -> loss -> backward -> step.
         model.train()
-        optimizer.zero_grad()
+        optimiser.zero_grad()
         outputs = model(x_train_tensor)
         loss = criterion(outputs, y_train_tensor)
         loss.backward()
-        optimizer.step()
+        optimiser.step()
         history.train_loss.append(float(loss.item()))
 
         should_validate = (
@@ -257,8 +212,6 @@ def train_emulator(
             and (epoch + 1) % config.validation_interval == 0
         )
         if should_validate:
-            # Validation is performed in eval mode and without gradient tracking
-            # to keep metrics unbiased and memory usage low.
             model.eval()
             with torch.no_grad():
                 val_outputs = model(x_val_tensor)
@@ -269,16 +222,7 @@ def train_emulator(
 
 
 def predict(model: NeuralNetworkEmulator, inputs: np.ndarray, *, device: str = "cpu") -> np.ndarray:
-    """Generate emulator predictions for numpy inputs.
-
-    Args:
-        model: Trained emulator model.
-        inputs: Feature matrix to predict on.
-        device: Device used for tensor execution.
-
-    Returns:
-        Predicted outputs as a numpy array.
-    """
+    """Generate emulator predictions for NumPy inputs."""
 
     model.eval()
     with torch.no_grad():
@@ -293,17 +237,7 @@ def test_emulator(
     *,
     device: str = "cpu",
 ) -> EvaluationResult:
-    """Evaluate emulator predictions on test data with MSE metric.
-
-    Args:
-        model: Trained emulator model.
-        x_test: Test features.
-        y_test: Test targets.
-        device: Device used for tensor execution.
-
-    Returns:
-        Evaluation result containing MSE, predictions, and targets.
-    """
+    """Evaluate emulator predictions on test data with MSE."""
 
     predictions = predict(model, x_test, device=device)
     targets = np.asarray(y_test, dtype=float)
@@ -334,41 +268,12 @@ def optimise_emulator(
     representative_trial_count: int = 3,
     device: str = "cpu",
 ) -> OptimisationResult:
-    """Run Optuna hyperparameter-optimisation search over architecture and training settings.
-
-    The search space includes variable layer counts, per-layer hidden widths,
-    per-layer dropout rates, optimiser selection, and learning rate. Each trial
-    supports early stopping and records train/validation-loss curves for
-    visualisation and analysis.
-
-    Args:
-        x_train: Training features.
-        y_train: Training targets.
-        x_val: Validation features.
-        y_val: Validation targets.
-        input_dim: Input dimensionality.
-        output_dim: Output dimensionality.
-        epochs: Maximum epochs per trial.
-        n_trials: Number of Optuna trials.
-        layer_options: Candidate values for hidden-layer count.
-        hidden_unit_options: Candidate hidden-layer widths.
-        dropout_range: Continuous range for dropout-rate sampling.
-        optimizer_options: Candidate optimizer names.
-        learning_rate_range: Continuous range for learning-rate sampling.
-        early_stopping_patience: Epochs without improvement before stopping.
-        early_stopping_min_delta: Minimum improvement threshold.
-        min_epochs_before_stopping: Warmup epochs before early stopping allowed.
-        best_model_path: Optional path to persist best model checkpoint.
-        training_curves_plot_path: Optional path for optimization-curve plot.
-        representative_trial_count: Number of non-best trials to plot.
-        device: Torch device for optimization runs.
-
-    Returns:
-        Optimization result with best params/value and optional artifact paths.
-    """
+    """Run Optuna hyperparameter optimisation over architecture and training settings."""
 
     if optuna is None:
-        raise ImportError("optuna is required to optimize emulator hyperparameters")
+        raise ImportError("optuna is required to optimise emulator hyperparameters")
+    assert optuna is not None
+    optuna_module = optuna
 
     x_train_tensor = _to_tensor(x_train, device)
     y_train_tensor = _to_tensor(y_train, device)
@@ -376,13 +281,11 @@ def optimise_emulator(
     y_val_tensor = _to_tensor(y_val, device)
     criterion = torch.nn.MSELoss()
 
-    def _select_representative_trial_numbers() -> list[int]:
-        """Choose non-best trials that span validation-loss quantiles."""
-
+    def _select_representative_trial_numbers(study_obj: Any) -> list[int]:
         completed = [
             trial
-            for trial in study.trials
-            if trial.value is not None and trial.number != study.best_trial.number
+            for trial in study_obj.trials
+            if trial.value is not None and trial.number != study_obj.best_trial.number
         ]
         if not completed:
             return []
@@ -393,20 +296,18 @@ def optimise_emulator(
         quantile_indices = np.linspace(0, len(completed_sorted) - 1, target_count, dtype=int)
         return [completed_sorted[index].number for index in quantile_indices]
 
-    def _save_training_curves(plot_path: Path) -> None:
-        """Save optimization learning-curve visualizations to disk."""
-
+    def _save_training_curves(study_obj: Any, plot_path: Path) -> None:
         try:
             import matplotlib.pyplot as plt
         except ImportError as exc:  # pragma: no cover
-            raise ImportError(
-                "matplotlib is required to save optimization training curves"
-            ) from exc
+            raise ImportError("matplotlib is required to save optimisation training curves") from exc
 
-        best_trial = study.best_trial
+        plt = cast(Any, plt)
+
+        best_trial = study_obj.best_trial
         best_train = best_trial.user_attrs.get("train_loss_history", [])
         best_val = best_trial.user_attrs.get("val_loss_history", [])
-        representative_numbers = _select_representative_trial_numbers()
+        representative_numbers = _select_representative_trial_numbers(study_obj)
 
         fig, axes = plt.subplots(1, 2, figsize=(14, 5), constrained_layout=True)
 
@@ -420,14 +321,10 @@ def optimise_emulator(
 
         axes[1].plot(best_val, label=f"Best Trial (#{best_trial.number})", color="black", linewidth=2)
         for trial_number in representative_numbers:
-            trial = study.trials[trial_number]
+            trial = study_obj.trials[trial_number]
             val_history = trial.user_attrs.get("val_loss_history", [])
-            axes[1].plot(
-                val_history,
-                linestyle="--",
-                alpha=0.8,
-                label=f"Trial #{trial.number}",
-            )
+            axes[1].plot(val_history, linestyle="--", alpha=0.8, label=f"Trial #{trial.number}")
+
         axes[1].set_title("Validation Curves: Best + Representative Trials")
         axes[1].set_xlabel("Epoch")
         axes[1].set_ylabel("MSE Loss")
@@ -438,23 +335,14 @@ def optimise_emulator(
         fig.savefig(plot_path, dpi=150)
         plt.close(fig)
 
-    def objective(trial: optuna.Trial) -> float:
-        """Optuna objective: train one sampled configuration and return best val loss."""
-
+    def objective(trial: Any) -> float:
         n_hidden_layers = trial.suggest_categorical("n_hidden_layers", list(layer_options))
         hidden_units = tuple(
-            trial.suggest_categorical(
-                f"n_hidden_units_{layer_index + 1}",
-                list(hidden_unit_options),
-            )
+            trial.suggest_categorical(f"n_hidden_units_{layer_index + 1}", list(hidden_unit_options))
             for layer_index in range(n_hidden_layers)
         )
         dropout_rates = tuple(
-            trial.suggest_float(
-                f"dropout_rate_{layer_index + 1}",
-                dropout_range[0],
-                dropout_range[1],
-            )
+            trial.suggest_float(f"dropout_rate_{layer_index + 1}", dropout_range[0], dropout_range[1])
             for layer_index in range(n_hidden_layers)
         )
         optimizer_name = trial.suggest_categorical("optimizer_name", list(optimizer_options))
@@ -464,6 +352,7 @@ def optimise_emulator(
             learning_rate_range[1],
             log=True,
         )
+
         model = build_emulator(
             input_dim=input_dim,
             hidden_units=hidden_units,
@@ -471,11 +360,7 @@ def optimise_emulator(
             output_dim=output_dim,
             device=device,
         )
-        optimizer = _build_optimizer(
-            model.parameters(),
-            optimizer_name=optimizer_name,
-            learning_rate=learning_rate,
-        )
+        optimiser = _build_optimizer(model.parameters(), optimizer_name, learning_rate)
 
         train_loss_history: list[float] = []
         val_loss_history: list[float] = []
@@ -483,18 +368,14 @@ def optimise_emulator(
         epochs_since_improvement = 0
 
         for epoch in range(epochs):
-            # Single-epoch training update.
             model.train()
-            optimizer.zero_grad()
+            optimiser.zero_grad()
             outputs = model(x_train_tensor)
             train_loss = criterion(outputs, y_train_tensor)
             train_loss.backward()
-            optimizer.step()
-
+            optimiser.step()
             train_loss_history.append(float(train_loss.item()))
 
-            # Evaluate on validation split every epoch for reliable early stopping
-            # and richer curve reporting.
             model.eval()
             with torch.no_grad():
                 val_outputs = model(x_val_tensor)
@@ -510,7 +391,7 @@ def optimise_emulator(
 
             trial.report(current_val_loss, step=epoch)
             if trial.should_prune():
-                raise optuna.TrialPruned()
+                raise optuna_module.TrialPruned()
 
             can_stop_early = (
                 early_stopping_patience > 0
@@ -523,18 +404,13 @@ def optimise_emulator(
         trial.set_user_attr("train_loss_history", train_loss_history)
         trial.set_user_attr("val_loss_history", val_loss_history)
         trial.set_user_attr("epochs_run", len(train_loss_history))
-
         return best_val_loss
 
-    # Minimize validation MSE across sampled hyperparameters.
-    study = optuna.create_study(direction="minimize")
+    study = optuna_module.create_study(direction="minimize")
     study.optimize(objective, n_trials=n_trials)
 
     best_model_path_str: str | None = None
     if best_model_path is not None:
-        # Reconstruct and retrain the best configuration for exactly the number
-        # of epochs executed in its winning trial so the saved checkpoint mirrors
-        # the validated trial behavior.
         best_trial = study.best_trial
         best_model = build_emulator(
             input_dim=input_dim,
@@ -549,23 +425,21 @@ def optimise_emulator(
             output_dim=output_dim,
             device=device,
         )
-        best_optimizer = _build_optimizer(
+        best_optimiser = _build_optimizer(
             best_model.parameters(),
             optimizer_name=str(best_trial.params["optimizer_name"]),
             learning_rate=float(best_trial.params["learning_rate"]),
         )
+
         for _ in range(int(best_trial.user_attrs.get("epochs_run", epochs))):
             best_model.train()
-            best_optimizer.zero_grad()
+            best_optimiser.zero_grad()
             outputs = best_model(x_train_tensor)
             loss = criterion(outputs, y_train_tensor)
             loss.backward()
-            best_optimizer.step()
-        best_state_dict = {
-            key: value.detach().cpu().clone()
-            for key, value in best_model.state_dict().items()
-        }
+            best_optimiser.step()
 
+        best_state_dict = {key: value.detach().cpu().clone() for key, value in best_model.state_dict().items()}
         best_model_path_obj = Path(best_model_path)
         best_model_path_obj.parent.mkdir(parents=True, exist_ok=True)
         torch.save(best_state_dict, best_model_path_obj)
@@ -574,13 +448,20 @@ def optimise_emulator(
     training_curves_plot_path_str: str | None = None
     if training_curves_plot_path is not None:
         plot_path_obj = Path(training_curves_plot_path)
-        _save_training_curves(plot_path_obj)
+        _save_training_curves(study, plot_path_obj)
         training_curves_plot_path_str = str(plot_path_obj)
 
-    return OptimizationResult(
+    return OptimisationResult(
         best_params=dict(study.best_params),
         best_value=float(study.best_value),
         study=study,
         best_model_path=best_model_path_str,
         training_curves_plot_path=training_curves_plot_path_str,
     )
+
+
+# Backwards-compatibility alias for American English spelling.
+def optimize_emulator(*args: Any, **kwargs: Any) -> OptimisationResult:
+    """Deprecated alias for :func:`optimise_emulator`."""
+
+    return optimise_emulator(*args, **kwargs)

@@ -5,7 +5,6 @@ from __future__ import annotations
 This module provides functions to load observations and simulation data from disk,
 and to persist normalised/transformed datasets and trained models in standard formats.
 """
-"""
 
 from dataclasses import dataclass
 from pathlib import Path

@@ -2,19 +2,19 @@
 
 ## Overview
 
-The `apb86_a1` package provides a complete workflow for:
+The apb86_a1 package provides an end-to-end workflow for:
 
 - loading 21-cm observation and simulation data
-- normalizing spectra and applying PCA
+- normalising spectra and applying PCA
 - splitting datasets for machine-learning workflows
 - training and evaluating a neural-network emulator
-- running Optuna-based hyperparameter optimization with:
-  - variable depth/width architectures
-  - dropout search
-  - optimizer and learning-rate search
-  - early stopping
-  - best-model checkpointing
-  - optimization curve visualization
+- running Optuna-based hyperparameter optimisation with architecture and optimiser search
+
+The preprocessing flow is leakage-safe by design:
+
+- split the simulation dataset into train, validation, and test first
+- compute min/max power from the training spectra only
+- apply the same normalisation statistics to validation, test, and observation spectra
 
 ## Installation and Execution
 
@@ -32,187 +32,152 @@ apb86-a1 --output-dir data
 
 ## Package Layout
 
-- `src/apb86_a1/io.py`: data loading and persistence helpers
-- `src/apb86_a1/preprocessing.py`: scaling, PCA, and data splitting
-- `src/apb86_a1/emulator.py`: model, training, evaluation, optimization
-- `src/apb86_a1/cli.py`: end-to-end command-line pipeline
-- `src/apb86_a1/__init__.py`: public API exports
+- src/apb86_a1/io.py: data loading and persistence helpers
+- src/apb86_a1/preprocessing.py: normalisation, PCA, and data splitting
+- src/apb86_a1/emulator.py: model, training, evaluation, and optimisation
+- src/apb86_a1/cli.py: end-to-end command-line pipeline
+- src/apb86_a1/__init__.py: public API exports
 
 ## API Reference
 
-### Module: `apb86_a1.io`
+### Module: apb86_a1.io
 
 #### Data Classes
 
-- `ObservationData`
-  - `k: np.ndarray`
-  - `power: np.ndarray`
+- ObservationData
+  - k: np.ndarray
+  - power: np.ndarray
 
-- `SimulationData`
-  - `ks: np.ndarray`
-  - `spectra: np.ndarray`
-  - `params: np.ndarray`
-  - `redshift: np.ndarray`
-  - `code: list[str]`
-  - `code_version: list[str]`
-  - `filenames: list[str]`
+- SimulationData
+  - ks: np.ndarray
+  - spectra: np.ndarray
+  - params: np.ndarray
+  - redshift: np.ndarray
+  - code: list[str]
+  - code_version: list[str]
+  - filenames: list[str]
 
 #### Public Functions
 
-- `load_observations(data_dir: str | Path) -> ObservationData`
-  - Loads `observations.npz`.
+- load_observations(data_dir: str | Path) -> ObservationData
+- load_simulation_dataset(data_dir: str | Path) -> SimulationData
+- save_split_datasets(output_dir, *, x_train, y_train, x_val, y_val, x_test, y_test) -> None
+- load_split_dataset(file_path: str | Path) -> dict[str, np.ndarray]
+- save_observations_pca(output_path: str | Path, observations_pca: np.ndarray) -> None
+- save_pca_model(output_path: str | Path, pca_model: Any) -> None
 
-- `load_simulation_dataset(data_dir: str | Path) -> SimulationData`
-  - Loads all simulation files and flattens parameters into 4-value vectors.
-
-- `save_split_datasets(output_dir, *, x_train, y_train, x_val, y_val, x_test, y_test) -> None`
-  - Saves train/val/test arrays as `.npz` files.
-
-- `load_split_dataset(file_path: str | Path) -> dict[str, np.ndarray]`
-  - Reads one saved split file.
-
-- `save_observations_pca(output_path: str | Path, observations_pca: np.ndarray) -> None`
-  - Saves PCA-transformed observation data.
-
-- `save_pca_model(output_path: str | Path, pca_model: Any) -> None`
-  - Saves a fitted PCA model using joblib.
-
-### Module: `apb86_a1.preprocessing`
+### Module: apb86_a1.preprocessing
 
 #### Data Classes
 
-- `NormalizationStats`
-  - `min_power: float`
-  - `max_power: float`
-  - `scale: float` property
+- NormalisationStats
+  - min_power: float
+  - max_power: float
+  - scale: float property
 
-- `PCAResults`
-  - `pca_model: sklearn.decomposition.PCA`
-  - `simulation_components: np.ndarray`
-  - `observation_components: np.ndarray`
+- PCAResults
+  - pca_model: sklearn.decomposition.PCA
+  - simulation_components: np.ndarray
+  - observation_components: np.ndarray
 
-- `DatasetSplits`
-  - `x_train, x_val, x_test, y_train, y_val, y_test`
+- DatasetSplits
+  - x_train, x_val, x_test, y_train, y_val, y_test
 
 #### Public Functions
 
-- `normalize_spectra(spectra: np.ndarray, stats: NormalizationStats | None = None) -> tuple[np.ndarray, NormalizationStats]`
-  - Min-max normalizes simulation spectra.
+- normalise_spectra(spectra: np.ndarray, stats: NormalisationStats | None = None) -> tuple[np.ndarray, NormalisationStats]
+- normalise_observation(observation_spectrum: np.ndarray, stats: NormalisationStats) -> np.ndarray
+- fit_pca_with_observation(simulation_spectra: np.ndarray, observation_spectrum: np.ndarray, *, n_components: int = 2) -> PCAResults
+- cumulative_explained_variance(pca_model: PCA) -> np.ndarray
+- split_training_data(params, targets, *, train_fraction=0.8, val_fraction=0.1, test_fraction=0.1, random_state=42) -> DatasetSplits
 
-- `normalize_observation(observation_spectrum: np.ndarray, stats: NormalizationStats) -> np.ndarray`
-  - Normalizes observation with simulation-derived stats.
+American spellings (NormalizationStats, normalize_spectra, normalize_observation) are kept as compatibility aliases.
 
-- `fit_pca_with_observation(simulation_spectra: np.ndarray, observation_spectrum: np.ndarray, *, n_components: int = 2) -> PCAResults`
-  - Fits PCA using simulations + observation, transforms both.
-
-- `cumulative_explained_variance(pca_model: PCA) -> np.ndarray`
-  - Returns cumulative explained variance.
-
-- `split_training_data(params, targets, *, train_fraction=0.8, val_fraction=0.1, test_fraction=0.1, random_state=42) -> DatasetSplits`
-  - Produces train/validation/test split arrays.
-
-### Module: `apb86_a1.emulator`
+### Module: apb86_a1.emulator
 
 #### Model and Config Classes
 
-- `NeuralNetworkEmulator(torch.nn.Module)`
-  - Configurable dense network with optional per-layer dropout.
-
-- `TrainingConfig`
-  - `learning_rate`, `epochs`, `hidden_units`, `dropout_rates`, `validation_interval`, `optimizer_name`, `device`
-
-- `TrainingHistory`
-  - `train_loss: list[float]`
-  - `val_loss: list[float]`
-
-- `EvaluationResult`
-  - `mse`, `predictions`, `targets`
-
-- `OptimizationResult`
-  - `best_params`, `best_value`, `study`, `best_model_path`, `training_curves_plot_path`
+- NeuralNetworkEmulator(torch.nn.Module)
+- TrainingConfig
+- TrainingHistory
+- EvaluationResult
+- OptimisationResult
 
 #### Public Functions
 
-- `build_emulator(*, input_dim=4, hidden_units=(128, 128, 32), dropout_rates=0.0, output_dim=2, device="cpu") -> NeuralNetworkEmulator`
-  - Builds and moves model to target device.
+- build_emulator(*, input_dim=4, hidden_units=(128, 128, 32), dropout_rates=0.0, output_dim=2, device="cpu") -> NeuralNetworkEmulator
+- train_emulator(model, x_train, y_train, *, x_val=None, y_val=None, config=TrainingConfig()) -> TrainingHistory
+- predict(model, inputs, *, device="cpu") -> np.ndarray
+- test_emulator(model, x_test, y_test, *, device="cpu") -> EvaluationResult
+- optimise_emulator(...) -> OptimisationResult
 
-- `train_emulator(model, x_train, y_train, *, x_val=None, y_val=None, config=TrainingConfig()) -> TrainingHistory`
-  - Trains model and records losses.
+The optimise_emulator routine supports:
 
-- `predict(model, inputs, *, device="cpu") -> np.ndarray`
-  - Performs inference.
+- variable hidden-layer count
+- variable hidden units per layer
+- variable dropout rates per layer
+- variable optimiser family
+- variable learning rate
+- early stopping per trial
+- optional best-model checkpoint saving
+- optional optimisation learning-curve plots
 
-- `test_emulator(model, x_test, y_test, *, device="cpu") -> EvaluationResult`
-  - Computes predictions and test MSE.
+American alias optimize_emulator is also exported for backwards compatibility.
 
-- `optimize_emulator(...) -> OptimizationResult`
-  - Runs Optuna optimization with support for:
-    - variable hidden-layer count
-    - variable hidden units per layer
-    - variable dropout rates per layer
-    - variable optimizer family
-    - variable learning rate
-    - early stopping per trial
-    - best-model checkpoint saving
-    - optimization curve plotting
-
-### Module: `apb86_a1.cli`
+### Module: apb86_a1.cli
 
 #### Public Functions
 
-- `build_parser() -> argparse.ArgumentParser`
-  - Creates the pipeline CLI parser.
-
-- `run_pipeline(args: argparse.Namespace) -> dict[str, object]`
-  - Executes full workflow and returns JSON-serializable summary.
-
-- `main() -> None`
-  - Entry point used by console script and `python -m apb86_a1`.
+- build_parser() -> argparse.ArgumentParser
+- run_pipeline(args: argparse.Namespace) -> dict[str, object]
+- main() -> None
 
 ## CLI Parameters
 
 Core:
 
-- `--data-dir`
-- `--output-dir`
-- `--n-components`
-- `--train-fraction`
-- `--val-fraction`
-- `--test-fraction`
-- `--epochs`
-- `--validation-interval`
-- `--learning-rate`
-- `--hidden-units`
-- `--device`
+- --data-dir
+- --output-dir
+- --n-components
+- --train-fraction
+- --val-fraction
+- --test-fraction
+- --epochs
+- --validation-interval
+- --learning-rate
+- --hidden-units
+- --device
 
-Optimization:
+Optimisation:
 
-- `--optimize`
-- `--n-trials`
-- `--early-stopping-patience`
-- `--early-stopping-min-delta`
-- `--min-epochs-before-stopping`
-- `--best-optimized-model-path`
-- `--optimization-curves-path`
-- `--representative-trials`
+- --optimise (preferred)
+- --n-trials
+- --early-stopping-patience
+- --early-stopping-min-delta
+- --min-epochs-before-stopping
+- --best-optimised-model-path
+- --optimisation-curves-path
+- --representative-trials
+
+American compatibility aliases are accepted for optimisation flags.
 
 Model saving:
 
-- `--save-model-path`
+- --save-model-path
 
-## Output Artifacts
+## Output Artefacts
 
-Typical outputs written to output directory:
+Typical outputs written to the output directory:
 
-- `train.npz`, `val.npz`, `test.npz`
-- `observations_pca.npz`
-- `pca_model.pkl`
-- `emulator.pt`
+- train.npz, val.npz, test.npz
+- observations_pca.npz
+- pca_model.pkl
+- emulator.pt
 
-Optional optimization outputs:
+Optional optimisation outputs:
 
-- best-optimized model checkpoint (custom path)
-- optimization training-curve plot (custom path)
+- best-optimised model checkpoint (custom path)
+- optimisation training-curve plot (custom path)
 
 ## Testing
 
