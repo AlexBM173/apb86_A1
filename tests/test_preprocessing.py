@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from apb86_a1.preprocessing import (
+from lba.preprocessing import (
     cumulative_explained_variance,
     fit_pca_with_observation,
     normalize_observation,

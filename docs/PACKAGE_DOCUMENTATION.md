@@ -2,7 +2,7 @@
 
 ## Overview
 
-The apb86_a1 package provides an end-to-end workflow for:
+The lba package provides an end-to-end workflow for:
 
 - loading 21-cm observation and simulation data
 - normalising spectra and applying PCA
@@ -21,26 +21,26 @@ The preprocessing flow is leakage-safe by design:
 Use directly from the repository:
 
 ```bash
-PYTHONPATH=src python3 -m apb86_a1 --output-dir data
+PYTHONPATH=src python3 -m lba --output-dir data
 ```
 
 Or after installation:
 
 ```bash
-apb86-a1 --output-dir data
+lba --output-dir data
 ```
 
 ## Package Layout
 
-- src/apb86_a1/io.py: data loading and persistence helpers
-- src/apb86_a1/preprocessing.py: normalisation, PCA, and data splitting
-- src/apb86_a1/emulator.py: model, training, evaluation, and optimisation
-- src/apb86_a1/cli.py: end-to-end command-line pipeline
-- src/apb86_a1/__init__.py: public API exports
+- src/lba/io.py: data loading and persistence helpers
+- src/lba/preprocessing.py: normalisation, PCA, and data splitting
+- src/lba/emulator.py: model, training, evaluation, and optimisation
+- src/lba/cli.py: end-to-end command-line pipeline
+- src/lba/__init__.py: public API exports
 
 ## API Reference
 
-### Module: apb86_a1.io
+### Module: lba.io
 
 #### Data Classes
 
@@ -66,7 +66,7 @@ apb86-a1 --output-dir data
 - save_observations_pca(output_path: str | Path, observations_pca: np.ndarray) -> None
 - save_pca_model(output_path: str | Path, pca_model: Any) -> None
 
-### Module: apb86_a1.preprocessing
+### Module: lba.preprocessing
 
 #### Data Classes
 
@@ -93,7 +93,7 @@ apb86-a1 --output-dir data
 
 American spellings (NormalizationStats, normalize_spectra, normalize_observation) are kept as compatibility aliases.
 
-### Module: apb86_a1.emulator
+### Module: lba.emulator
 
 #### Model and Config Classes
 
@@ -124,7 +124,7 @@ The optimise_emulator routine supports:
 
 American alias optimize_emulator is also exported for backwards compatibility.
 
-### Module: apb86_a1.cli
+### Module: lba.cli
 
 #### Public Functions
 

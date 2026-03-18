@@ -3,7 +3,7 @@ A1 Radio Astronomy coursework for Cambridge MPhil in Data Intensive Science
 
 ## Python Library
 
-The project now includes a small Python package under `src/apb86_a1` for:
+The project now includes a small Python package under `src/lba` for:
 
 - loading the observation and simulation datasets
 - normalising spectra and applying PCA
@@ -22,19 +22,19 @@ Run the package without installing it by setting `PYTHONPATH=src`.
 Run the full preprocessing and emulator pipeline from the command line:
 
 ```bash
-PYTHONPATH=src python3 -m apb86_a1 --output-dir data
+PYTHONPATH=src python3 -m lba --output-dir data
 ```
 
 If the package is installed, the console script is also available:
 
 ```bash
-apb86-a1 --output-dir data
+lba --output-dir data
 ```
 
 Useful options:
 
 ```bash
-PYTHONPATH=src python3 -m apb86_a1 \
+PYTHONPATH=src python3 -m lba \
 	--output-dir data \
 	--epochs 200 \
 	--validation-interval 10 \
@@ -48,7 +48,7 @@ PYTHONPATH=src python3 -m apb86_a1 \
 To run hyperparameter optimisation:
 
 ```bash
-PYTHONPATH=src python3 -m apb86_a1 \
+PYTHONPATH=src python3 -m lba \
 	--output-dir data \
 	--optimise \
 	--n-trials 20 \

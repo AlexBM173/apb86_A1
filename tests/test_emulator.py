@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from apb86_a1.emulator import (
+from lba.emulator import (
     NeuralNetworkEmulator,
     build_emulator,
     optimize_emulator,

@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from sklearn.decomposition import PCA
 
-from apb86_a1.io import (
+from lba.io import (
     load_observations,
     load_simulation_dataset,
     load_split_dataset,

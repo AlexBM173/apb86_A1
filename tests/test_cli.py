@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from apb86_a1.cli import build_parser, run_pipeline
+from lba.cli import build_parser, run_pipeline
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
